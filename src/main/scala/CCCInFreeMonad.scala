@@ -2,21 +2,29 @@ import cats.effect.{IO, Sync}
 import cats.free.Free
 import cats.implicits._
 import cats.{Monad, ~>}
+import freestyle.free._
 
 object CCCInFreeMonad {
-  sealed trait StuffAlgebra[A] {
-    val liftF: Free[StuffAlgebra, A] = Free.liftF(this)
+  @free trait Stuff {
+    def doStuff1: FS[Unit]
+    def doStuff2: FS[Unit]
+    def doExceptionalStuff: FS[Unit]
   }
-  case object DoStuff1 extends StuffAlgebra[Unit]
-  case object DoStuff2 extends StuffAlgebra[Unit]
-  case object DoExceptionalStuff extends StuffAlgebra[Unit]
+
+  object RealStuff extends Stuff.Handler[IO] {
+    override def doStuff1: IO[Unit] = IO(println("doing real stuff 1"))
+
+    override def doStuff2: IO[Unit] = IO(println("doing real stuff 2"))
+
+    override def doExceptionalStuff: IO[Unit] = IO.raiseError(new Exception())
+  }
 
   // cross-cutting concern for `StuffAlgebra`
-  class LoggingStuffInterpreter[F[_]](implInterpreter: (StuffAlgebra ~> F))(
+  class LoggingStuffInterpreter[F[_]](implInterpreter: (Stuff.Op ~> F))(
       implicit s: Sync[F],
       m: Monad[F])
-      extends (StuffAlgebra ~> F) {
-    override def apply[A](fa: StuffAlgebra[A]): F[A] =
+      extends (Stuff.Op ~> F) {
+    override def apply[A](fa: Stuff.Op[A]): F[A] =
       for {
         _ <- s.delay(println("logging enter"))
         result <- implInterpreter(fa)
@@ -44,25 +52,18 @@ object CCCInFreeMonad {
       } yield result
   }
 
-  // separate concerns
-  object RealStuffInterpreter extends (StuffAlgebra ~> IO) {
-    override def apply[A](fa: StuffAlgebra[A]): IO[A] = fa match {
-      case DoStuff1           => IO(println("doing real stuff 1"))
-      case DoStuff2           => IO(println("doing real stuff 2"))
-      case DoExceptionalStuff => IO.raiseError(new Exception())
-    }
-  }
-
   def main(args: Array[String]): Unit = {
-    val interpreter = new LoggingStuffInterpreter(
-      new TransactionalInterpreter(RealStuffInterpreter))
+    val stuff = Stuff[Stuff.Op]
+
+    implicit val interpreter = new LoggingStuffInterpreter(
+      new TransactionalInterpreter(RealStuff))
 
     val program = for {
-      _ <- DoStuff1.liftF
-      _ <- DoStuff2.liftF
-      _ <- DoExceptionalStuff.liftF
+      _ <- stuff.doStuff1
+      _ <- stuff.doStuff2
+      _ <- stuff.doExceptionalStuff
     } yield ()
 
-    program.foldMap(interpreter).attempt.unsafeRunSync()
+    program.interpret[IO].attempt.unsafeRunSync()
   }
 }
