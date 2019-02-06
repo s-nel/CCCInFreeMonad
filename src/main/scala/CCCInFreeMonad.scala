@@ -1,5 +1,4 @@
 import cats.effect.{IO, Sync}
-import cats.free.Free
 import cats.implicits._
 import cats.{Monad, ~>}
 import freestyle.free._
