@@ -244,14 +244,14 @@ object UnitOfWorkPoc {
                                                                  unitOfWorkExecutor: UnitOfWorkExecutor[BackingStore]) {
       def multiTest: Future[Unit] = unitOfWorkExecutor.execute[Foo, Bar, Unit] { (foos, bars) =>
         for {
-          nonExistantFoo <- foos.get(1)
-          _ = assert(nonExistantFoo == None) // read from repo
+          nonExistantFoo <- foos.get(1)  // read from repo
+          _ = assert(nonExistantFoo == None)
           _ <- foos.create(Foo(1, "foo"))
           _ <- bars.create(Bar(1, "bar")) // create a different entity
-          foo1 <- foos.get(1)
-          _ = assert(foo1 == Some(Foo(1, "foo"))) // read insert from cache
+          foo1 <- foos.get(1) // read insert from cache
+          _ = assert(foo1 == Some(Foo(1, "foo")))
         } yield ()
-      }
+      } // implicit commit
     }
   }
 }
