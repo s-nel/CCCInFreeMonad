@@ -1,0 +1,16 @@
+*.iml
+.DS_Store
+.idea
+target
+*.swp
+*.swo
+*~
+/out
+found-integration/environments/**/*.log
+/ve
+*.pyc
+.envrc
+.vscode
+docs/cloud-enterprise/html_docs
+docs/html_docs
+python-services/venv/*
